@@ -1,6 +1,6 @@
 // JavaScript source code
-var cacheName = 'weatherPWA-step-6-1';
-var dataCacheName = 'weatherData-v1';
+var cacheName = 'weatherPWA';
+var dataCacheName = 'weatherData';
 var fontCacheName = 'FontCache';
 var filesToCache = ['/',
     '/index.html',
@@ -26,8 +26,8 @@ importScripts('/__/firebase/5.5.6/firebase-app.js');
 importScripts('/__/firebase/5.5.6/firebase-messaging.js');
 importScripts('/__/firebase/5.5.6/firebase-functions.js');
 importScripts('/__/firebase/init.js');
-//importScripts('path/to/offline-google-analytics-import.js');
-//goog.offlineGoogleAnalytics.initialize();
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/3.6.1/workbox-sw.js');
+workbox.googleAnalytics.initialize();
 
 var messaging = firebase.messaging();
 console.log(messaging);
@@ -67,7 +67,7 @@ self.addEventListener('activate', function (e) {
 });
 self.addEventListener('fetch', function (e) {
     console.log('[Service Worker] Fetch', e.request.url);
-    var dataUrl = 'https://query.yahooapis.com/v1/public/yql';
+    var dataUrl = 'https://api-datafetch.herokuapp.com/getData';
     var fontUrl = 'https://fonts.googleapis.com';
     if (e.request.url.indexOf(dataUrl) > -1) {
         /*
@@ -77,9 +77,12 @@ self.addEventListener('fetch', function (e) {
          * network" strategy:
          * https://jakearchibald.com/2014/offline-cookbook/#cache-then-network
          */
+        console.log('entering but not caching');
         e.respondWith(
             caches.open(dataCacheName).then(function (cache) {
                 return fetch(e.request).then(function (response) {
+                    var content=response.clone();
+                    console.log(content.data);
                     cache.put(e.request.url, response.clone());
                     return response;
                 });

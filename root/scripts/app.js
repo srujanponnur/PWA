@@ -33,11 +33,22 @@ let showPrompt;
         daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     };
     //require("firebase/functions")
-    var functions = firebase.functions();
+  /*  var functions = firebase.functions();
     var printFunction = firebase.functions().httpsCallable('printFunction');
-    printFunction({"data":{"text":"hello"}}).then(function(result) {
-      console.log('printFunction Cloud Function is successfully called'+result);
-});
+    printFunction({"data":{"text":"hello"}}).then(function(request) {
+        request.get(
+    'https://weather-ydn-yql.media.yahoo.com/forecastrss?location=sunnyvale,ca&format=json',
+    null,
+    null,
+    function (err, data, result) {
+        if (err) {
+            console.log(err);
+        } else {
+             console.log(data);
+        }
+    });
+      //console.log('printFunction Cloud Function is successfully called'+result);
+});*/
     
     /*****************************************************************************
      *
@@ -155,11 +166,12 @@ let showPrompt;
     // doesn't already exist, it's cloned from the template.
     app.updateForecastCard = function (data) {
         var dataLastUpdated = new Date(data.created);
-        var sunrise = data.channel.astronomy.sunrise;
-        var sunset = data.channel.astronomy.sunset;
-        var current = data.channel.item.condition;
-        var humidity = data.channel.atmosphere.humidity;
-        var wind = data.channel.wind;
+        var sunrise = data.current_observation.astronomy.sunrise;
+        var sunset = data.current_observation.astronomy.sunset;
+        var current = data.current_observation.condition;
+        current.date=new Date(data.current_observation.pubDate);
+        var humidity = data.current_observation.atmosphere.humidity;
+        var wind = data.current_observation.wind;
 
         var card = app.visibleCards[data.key];
         if (!card) {
@@ -189,7 +201,7 @@ let showPrompt;
         card.querySelector('.date').textContent = current.date;
         card.querySelector('.current .icon').classList.add(app.getIconClass(current.code));
         card.querySelector('.current .temperature .value').textContent =
-            Math.round(current.temp);
+            Math.round(current.temperature);
         card.querySelector('.current .sunrise').textContent = sunrise;
         card.querySelector('.current .sunset').textContent = sunset;
         card.querySelector('.current .humidity').textContent =
@@ -202,7 +214,7 @@ let showPrompt;
         today = today.getDay();
         for (var i = 0; i < 7; i++) {
             var nextDay = nextDays[i];
-            var daily = data.channel.item.forecast[i];
+            var daily = data.forecasts[i];
             if (daily && nextDay) {
                 nextDay.querySelector('.date').textContent =
                     app.daysOfWeek[(i + today) % 7];
@@ -236,8 +248,8 @@ let showPrompt;
      * freshest data.
      */
     app.getForecast = function (key, label) {
-        var statement = 'select * from weather.forecast where woeid=' + key;
-        var url = 'https://query.yahooapis.com/v1/public/yql?format=json&q=' +
+        var statement = '';
+        var url = 'https://api-datafetch.herokuapp.com/getData' +
             statement;
         // TODO add cache logic here
 
@@ -250,10 +262,10 @@ let showPrompt;
             caches.match(url).then(function (response) {
                 if (response) {
                     response.json().then(function updateFromCache(json) {
-                        var results = json.query.results;
+                        var results = json;
                         results.key = key;
                         results.label = label;
-                        results.created = json.query.created;
+                        results.created = json.created;
                         app.updateForecastCard(results);
                     });
                 }
@@ -261,7 +273,23 @@ let showPrompt;
         }
 
         // Fetch the latest data.
-        var request = new XMLHttpRequest();
+        var xhr = new XMLHttpRequest();
+        var url = "https://cors-escape.herokuapp.com/https://api-datafetch.herokuapp.com/getData";
+        xhr.open("POST", url, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            var json = JSON.parse(xhr.responseText);
+            var results=json;
+            results.label=label;
+            results.key=key;
+            results.created=new Date();
+            app.updateForecastCard(results);
+        }
+        };
+var data = JSON.stringify({"location":label});
+xhr.send(data);
+        /*var request = new XMLHttpRequest();
         request.onreadystatechange = function () {
             if (request.readyState === XMLHttpRequest.DONE) {
                 if (request.status === 200) {
@@ -278,7 +306,7 @@ let showPrompt;
             }
         };
         request.open('GET', url);
-        request.send();
+        request.send();*/
     };
 
     // Iterate all of the cards and attempt to get the latest forecast data
@@ -365,7 +393,7 @@ let showPrompt;
      * or when the user has not saved any cities. See startup code for more
      * discussion.
      */
-
+/*
     function urlB64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding)
@@ -490,7 +518,121 @@ let showPrompt;
         key: '2459115',
         label: 'New York, NY',
         created: '2016-07-22T01:00:00Z',
-        channel: {
+         "location": {
+        "woeid": 2459115,
+        "city": "New York",
+        "region": " NY",
+        "country": "United States",
+        "lat": 40.71455,
+        "long": -74.007118,
+        "timezone_id": "America/New_York"
+    },
+    "current_observation": {
+        "wind": {
+            "chill": 25,
+            "direction": 110,
+            "speed": 15.53
+        },
+        "atmosphere": {
+            "humidity": 97,
+            "visibility": 3.79,
+            "pressure": 29.56,
+            "rising": 0
+        },
+        "astronomy": {
+            "sunrise": "7:16 am",
+            "sunset": "4:59 pm"
+        },
+        "condition": {
+            "text": "Rain",
+            "code": 12,
+            "temperature": 35
+        },
+        "pubDate": 1547971200
+    },
+    "forecasts": [
+        {
+            "day": "Sun",
+            "date": 1547960400,
+            "low": 18,
+            "high": 48,
+            "text": "Rain",
+            "code": 12
+        },
+        {
+            "day": "Mon",
+            "date": 1548046800,
+            "low": 8,
+            "high": 15,
+            "text": "Breezy",
+            "code": 23
+        },
+        {
+            "day": "Tue",
+            "date": 1548133200,
+            "low": 14,
+            "high": 31,
+            "text": "Partly Cloudy",
+            "code": 30
+        },
+        {
+            "day": "Wed",
+            "date": 1548219600,
+            "low": 28,
+            "high": 45,
+            "text": "Scattered Showers",
+            "code": 39
+        },
+        {
+            "day": "Thu",
+            "date": 1548306000,
+            "low": 38,
+            "high": 49,
+            "text": "Showers",
+            "code": 11
+        },
+        {
+            "day": "Fri",
+            "date": 1548392400,
+            "low": 27,
+            "high": 37,
+            "text": "Scattered Showers",
+            "code": 39
+        },
+        {
+            "day": "Sat",
+            "date": 1548478800,
+            "low": 20,
+            "high": 29,
+            "text": "Partly Cloudy",
+            "code": 30
+        },
+        {
+            "day": "Sun",
+            "date": 1548565200,
+            "low": 23,
+            "high": 33,
+            "text": "Partly Cloudy",
+            "code": 30
+        },
+        {
+            "day": "Mon",
+            "date": 1548651600,
+            "low": 23,
+            "high": 31,
+            "text": "Breezy",
+            "code": 23
+        },
+        {
+            "day": "Tue",
+            "date": 1548738000,
+            "low": 19,
+            "high": 33,
+            "text": "Partly Cloudy",
+            "code": 30
+        }
+    ]
+        /*channel: {
             astronomy: {
                 sunrise: "5:43 am",
                 sunset: "8:21 pm"
@@ -519,7 +661,7 @@ let showPrompt;
                 speed: 25,
                 direction: 195
             }
-        }
+        }*/
     };
     // TODO uncomment line below to test app with fake data
     //app.updateForecastCard(initialWeatherForecast);
